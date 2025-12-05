@@ -1,0 +1,321 @@
+# BRG Project 2: Long/Short Momentum Strategy
+
+**Author:** Colby Jaskowiak  
+**Organization:** Buffalo Research Group  
+**Date:** December 2025  
+
+---
+
+## Project Overview
+
+This project develops and backtests a **quantitative long/short equity strategy** using 12-1 month momentum signals on the S&P 500. The strategy systematically buys (goes long) the top momentum decile and sells (goes short) the bottom momentum decile, rebalancing quarterly over an 8-year period (2017-2025).
+
+**Key Results:**
+- **1,147% cumulative return** ($1 → $12.47)
+- **33.4% annualized return**
+- **0.78 Sharpe ratio**
+- **77% quarterly win rate**
+
+However, factor analysis revealed a critical insight: returns were driven primarily by **leveraged market beta (2.43)** rather than pure momentum alpha, fundamentally changing how we interpret these results.
+
+---
+
+## Project Goals
+
+1. **Build a systematic momentum strategy** with reproducible signal construction and portfolio formation
+2. **Backtest performance** across multiple market regimes (bull and bear markets)
+3. **Validate robustness** through rigorous out-of-sample analysis
+4. **Analyze factor characteristics** (decile monotonicity, turnover, beta exposure)
+5. **Identify implementation challenges** (transaction costs, market neutrality)
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+```bash
+Python 3.8+
+Jupyter Notebook/Lab
+```
+
+### Installation
+
+1. **Clone the repository:**
+```bash
+git clone https://github.com/yourusername/brg-project-2.git
+cd brg-project-2
+```
+
+2. **Install dependencies:**
+```bash
+pip install -r requirements.txt
+```
+
+3. **Run the notebook:**
+```bash
+jupyter notebook brg-project-2.ipynb
+```
+
+### Dependencies
+
+```
+numpy>=1.21.0
+pandas>=1.3.0
+yfinance>=0.1.70
+plotly>=5.3.0
+matplotlib>=3.4.0
+scipy>=1.7.0
+```
+
+---
+
+## Methodology
+
+### Signal Construction
+
+**Momentum Signal:**
+```
+Momentum(i,t) = [Price(i,t-1) / Price(i,t-12)] - 1
+```
+
+We calculate the **12-1 month return** (skipping the most recent month) to avoid short-term reversal effects that can obscure medium-term trends.
+
+**Why skip the last month?**  
+Academic research shows the most recent month often exhibits mean reversion, while months 2-12 capture momentum persistence.
+
+### Portfolio Construction
+
+**Universe:** S&P 500 stocks (401 after data quality filters)  
+**Rebalancing:** Quarterly (end of March, June, September, December)  
+**Formation Process:**
+1. Rank all stocks by momentum signal
+2. Divide into 10 deciles (~40 stocks per decile)
+3. **Long:** Top decile (highest momentum)
+4. **Short:** Bottom decile (lowest momentum)
+
+**Position Sizing:**
+- Equal-weight within each leg (2.5% per stock)
+- 5% maximum position cap
+- Dollar-neutral: $1.00 long = $1.00 short
+
+### Data
+
+**Source:** Yahoo Finance (via `yfinance`)  
+**Period:** November 2015 - November 2025 (10 years)  
+**Frequency:** Daily prices → Monthly resampling  
+**Survivorship Bias:** Uses current S&P 500 constituents (acknowledged limitation)
+
+---
+
+## Key Results
+
+### Full-Sample Performance (2017-2025)
+
+| Metric | Long Only | Short Only | **Long-Short** |
+|--------|-----------|------------|----------------|
+| **Total Return** | 382% | 291% | **1,147%** |
+| **Ann. Return** | 19.7% | 16.9% | **33.4%** |
+| **Ann. Volatility** | 20.4% | 25.4% | **43.0%** |
+| **Sharpe Ratio** | 0.97 | 0.66 | **0.78** |
+| **Max Drawdown** | -19.6% | -30.5% | **-49.1%** |
+| **Win Rate** | 80% | 69% | **77%** |
+
+### Out-of-Sample Validation
+
+To assess robustness, we split data into:
+- **In-Sample (IS):** 2017-2021 (5 years)
+- **Out-of-Sample (OOS):** 2022-2025 (3.5 years)
+
+| Portfolio | IS Sharpe | OOS Sharpe | **Retention** |
+|-----------|-----------|------------|---------------|
+| Long Only | 1.07 | 0.80 | 75% |
+| Short Only | 0.71 | 0.60 | 85% |
+| **Long-Short** | **0.83** | **0.71** | **86%** |
+
+**Key Finding:** 86% Sharpe retention is exceptional for quantitative strategies (typical degradation: 30-50%). The strategy remained profitable through the 2022 bear market, providing strong evidence of robustness.
+
+---
+
+## Critical Findings
+
+### 1. Momentum Factor Failure
+
+**Expected:** Returns should increase from Decile 1 (worst) to Decile 10 (best)  
+**Reality:** **Negative spread** - bottom decile outperformed top decile by 0.44% per quarter
+
+This suggests **mean reversion dominated momentum** during this period, contradicting the core hypothesis.
+
+### 2. Excessive Turnover
+
+**Average quarterly turnover:** 94%  
+**Implication:** Nearly the entire portfolio churns every quarter
+
+At 20 bps per round-trip trade, this implies ~75 bps annual transaction cost drag—severely impacting real-world profitability.
+
+### 3. High Market Beta
+
+**Portfolio beta to S&P 500:** 2.43 (range: 2.02 - 2.77)
+
+Despite dollar-neutral construction, the strategy has significant positive beta. This occurred because:
+- High-momentum stocks (our longs) systematically have higher betas
+- Strategy captures leveraged market exposure, not pure momentum alpha
+
+### Return Attribution
+
+```
+Total Return (33.4% ann.) ≈ Market Beta (2.43 × ~12% SPY) + Small Alpha + Leverage
+                          ≈ 29.2% (beta) + minimal alpha
+```
+
+**Conclusion:** This is fundamentally a **leveraged equity strategy**, not a market-neutral arbitrage.
+
+---
+
+## What Worked
+
+- **Strong OOS performance** - 86% Sharpe retention validates robustness  
+- **Multi-regime consistency** - Profitable in both bull and bear markets  
+- **Both legs contributed** - Long and short independently profitable  
+- **High win rate** - 77% quarterly success demonstrates consistency  
+
+---
+
+## What Didn't Work
+
+- **Momentum factor failed** - Negative decile spread contradicts hypothesis  
+- **Excessive turnover** - 94% churn creates severe transaction costs  
+- **High beta exposure** - 2.43 beta eliminates market-neutral benefits  
+- **Non-monotonic returns** - Factor doesn't work cleanly across distribution  
+
+---
+
+## Recommended Improvements
+
+### 1. Beta Neutralization
+**Issue:** 2.43 beta to S&P 500  
+**Solution:** Weight positions by inverse beta to target |β| < 0.3  
+**Impact:** Isolate pure momentum alpha from market exposure
+
+### 2. Turnover Reduction
+**Issue:** 94% quarterly churn  
+**Solutions:**
+- Implement position buffers (only rebalance if stock moves 2+ deciles)
+- Use quintiles instead of deciles (fewer positions)
+- Target: <50% quarterly turnover
+
+### 3. Signal Optimization
+**Issue:** 12-1 month signal may be suboptimal  
+**Solutions:**
+- Test alternative windows: 6-2, 9-1, 3-1 months
+- Combine with value/quality factors for stability
+- Adaptive lookback based on volatility regime
+
+### 4. Risk Management
+**Additions:**
+- Sector neutralization (prevent unintended industry bets)
+- Liquidity-based position caps (ADV constraints)
+- Dynamic drawdown controls
+
+---
+
+## Educational Value
+
+This project demonstrates the **complete quantitative research workflow:**
+
+1. **Signal Construction** - Building momentum factors from price data
+2. **Portfolio Formation** - Systematic ranking and position sizing
+3. **Backtesting** - Proper simulation avoiding look-ahead bias
+4. **Risk Analysis** - Sharpe ratios, drawdowns, beta, turnover
+5. **Out-of-Sample Validation** - Testing robustness on unseen data
+6. **Performance Attribution** - Understanding true drivers of returns
+
+**Key Lesson:** Strong absolute returns ≠ strong alpha. Decomposing performance into beta, leverage, and skill is essential.
+
+---
+
+## Future Research Directions
+
+### Near-Term Improvements
+- [ ] Implement beta-neutral position weighting
+- [ ] Test alternative momentum signal specifications
+- [ ] Explicitly model transaction costs
+- [ ] Add sector/industry neutralization
+
+### Advanced Extensions
+- [ ] Multi-factor integration (momentum + value + quality)
+- [ ] Machine learning for adaptive signal windows
+- [ ] Regime-dependent rebalancing frequency
+- [ ] Cross-asset momentum (equities, bonds, commodities)
+
+---
+
+## References
+
+### Academic Papers
+- Jegadeesh, N., & Titman, S. (1993). *Returns to Buying Winners and Selling Losers: Implications for Stock Market Efficiency*. Journal of Finance, 48(1), 65-91.
+- Carhart, M. M. (1997). *On Persistence in Mutual Fund Performance*. Journal of Finance, 52(1), 57-82.
+- Asness, C., Moskowitz, T., & Pedersen, L. H. (2013). *Value and Momentum Everywhere*. Journal of Finance, 68(3), 929-985.
+
+### Practical Resources
+- [Quantopian Lectures](https://www.quantopian.com/lectures) - Quantitative finance fundamentals
+- [QuantStart](https://www.quantstart.com/) - Backtesting tutorials
+- [Alpha Architect](https://alphaarchitect.com/blog/) - Factor investing research
+
+---
+
+## Documentation
+
+### Reports
+- **Main Report** (`brg_project2_report.pdf`) - Professional presentation of methodology and results (no code)
+- **Code Appendix** (`brg_project2_code_appendix.pdf`) - Complete implementation details
+
+### Notebook Sections
+1. **Introduction & Motivation** - Strategy overview and momentum factor background
+2. **Data Collection** - S&P 500 universe and price data acquisition
+3. **Signal Construction** - 12-1 month momentum calculation
+4. **Portfolio Construction** - Decile sorting and position sizing
+5. **Backtest Results** - Performance, risk, and drawdown analysis
+6. **Factor Analysis** - Decile returns, turnover, and beta exposure
+7. **Conclusions** - Key findings and future work
+
+---
+
+## Contributing
+
+This is an educational research project by Buffalo Research Group. Feedback and suggestions are welcome:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/improvement`)
+3. Commit changes (`git commit -am 'Add analysis'`)
+4. Push to branch (`git push origin feature/improvement`)
+5. Open a Pull Request
+
+---
+
+## Disclaimer
+
+This project is for **educational and research purposes only**. It does not constitute investment advice or a recommendation to buy or sell any securities. Past performance does not guarantee future results. The strategy exhibits high beta exposure and significant transaction costs that would materially impact real-world implementation.
+
+**Key Risks:**
+- High market beta (2.43) means strategy amplifies market movements
+- 94% turnover creates substantial transaction costs
+- Survivorship bias in data (uses current S&P 500 constituents)
+- Momentum factor showed negative spread in test period
+
+Always conduct your own research and consult with a qualified financial advisor before making investment decisions.
+
+---
+
+## Project Stats
+
+![Lines of Code](https://img.shields.io/badge/lines%20of%20code-2500+-blue)
+![Analysis Period](https://img.shields.io/badge/analysis%20period-2017--2025-green)
+![Rebalances](https://img.shields.io/badge/rebalances-36-orange)
+![Stocks Analyzed](https://img.shields.io/badge/stocks-401-red)
+
+**Built by Buffalo Research Group**
+
+---
+
+*Last Updated: December 2025*
